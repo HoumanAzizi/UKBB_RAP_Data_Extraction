@@ -1,0 +1,27 @@
+# UKB Data Extraction Configuration File
+# Lines starting with # are comments and will be ignored
+# 
+# Format:
+# FIELD_ID: comma-separated list of field IDs
+# INSTANCE_ID: comma-separated list of instance IDs OR "all" to include all instances
+# CATEGORY_ID: comma-separated list of category IDs OR "none" to skip
+#
+# Example 1: Extract specific fields with specific instances
+# FIELD_ID: 31, 21003, 21022
+# INSTANCE_ID: 0, 1, 2
+# CATEGORY_ID: none
+
+# Example 2: Extract all fields from a category with all instances
+# FIELD_ID: 
+# INSTANCE_ID: all
+# CATEGORY_ID: 100
+
+# Example 3: Extract specific fields + category fields with all instances
+# FIELD_ID: 31, 21003
+# INSTANCE_ID: all
+# CATEGORY_ID: 100, 101
+
+# Your configuration:
+FIELD_ID: 31, 21003, 21022
+INSTANCE_ID: all
+CATEGORY_ID: 196
