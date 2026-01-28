@@ -228,9 +228,9 @@ Some commonly used field IDs:
 - `31`: Sex
 - `21003`: Age at assessment
 - `21022`: Age at recruitment
-- `21001`: BMI
+- `21001`: Body mass index (BMI) - calculated
 - `50`: Standing height
-- `23104`: Body mass index (BMI)
+- `23104`: Body mass index (BMI) - impedance
 
 For a complete list of field IDs and categories, refer to the [UK Biobank Showcase](https://biobank.ndph.ox.ac.uk/showcase/).
 
