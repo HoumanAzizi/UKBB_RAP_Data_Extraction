@@ -311,9 +311,9 @@ n_subjects <- length(unique_subjects)
 # Determine all unique array IDs that exist in the data
 all_array_ids <- unique(col_info$array_id[!is.na(col_info$array_id)])
 if (length(all_array_ids) == 0) {
-  all_array_ids <- 0
+  all_array_ids <- 0L
 } else {
-  all_array_ids <- sort(c(0, all_array_ids))
+  all_array_ids <- sort(unique(c(0L, all_array_ids)))
 }
 
 # Create base combinations
@@ -414,7 +414,16 @@ for (fid in field_ids) {
 # Sort the final data
 setorder(final_dt, SubjectID, InstanceID, ArrayID)
 
-cat("\nFinal dimensions:", nrow(final_dt), "rows x", ncol(final_dt), "columns\n\n")
+cat("\nDimensions before removing all-NA rows:", nrow(final_dt), "rows x", ncol(final_dt), "columns\n")
+
+# Remove rows where all columns except SubjectID, InstanceID, and ArrayID are NA
+data_cols <- setdiff(colnames(final_dt), c("SubjectID", "InstanceID", "ArrayID"))
+if (length(data_cols) > 0) {
+  keep_mask <- final_dt[, Reduce(`|`, lapply(.SD, function(x) !is.na(x))), .SDcols = data_cols]
+  final_dt <- final_dt[keep_mask]
+}
+
+cat("Dimensions after removing all-NA rows:", nrow(final_dt), "rows x", ncol(final_dt), "columns\n\n")
 
 # Generate output filename
 output_file <- paste0(output_name, ".csv")

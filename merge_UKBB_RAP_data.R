@@ -24,7 +24,8 @@ data_files <- c(
   "UKB_population_characteristics_2025Nov.csv",
   "UKB_health_outcomes_2025Nov.csv",
   "UKB_additional_exposures_2025Nov.csv",
-  "UKB_biological_samples_2025Nov.csv"
+  "UKB_biological_samples_2025Nov.csv",
+  "UKB_online_followup_2025Nov.csv"
 )
 
 cat("Reading and merging data files...\n")
