@@ -416,6 +416,12 @@ setorder(final_dt, SubjectID, InstanceID, ArrayID)
 
 cat("\nDimensions before removing all-NA rows:", nrow(final_dt), "rows x", ncol(final_dt), "columns\n")
 
+# Convert empty strings to NA across all data columns
+data_cols_all <- setdiff(colnames(final_dt), c("SubjectID", "InstanceID", "ArrayID"))
+for (col in data_cols_all) {
+  set(final_dt, which(final_dt[[col]] == ""), col, NA)
+}
+
 # Remove rows where all columns except SubjectID, InstanceID, and ArrayID are NA
 data_cols <- setdiff(colnames(final_dt), c("SubjectID", "InstanceID", "ArrayID"))
 if (length(data_cols) > 0) {
