@@ -84,7 +84,7 @@ get_coding_name <- function(field_id, dictionary) {
   return(trimws(coding_name))
 }
 
-# Function to apply data coding to a vector
+# Function to apply data coding to a vector, handling pipe-separated values
 apply_data_coding <- function(values, coding_name, codings_dt) {
   if (is.na(coding_name)) {
     return(values)
@@ -99,20 +99,37 @@ apply_data_coding <- function(values, coding_name, codings_dt) {
     return(values)
   }
   
-  # Create a lookup vector
-  lookup <- setNames(coding_map$meaning, coding_map$code)
+  # Create a lookup vector: code -> meaning
+  lookup <- setNames(coding_map$meaning, as.character(coding_map$code))
   
-  # Convert values to character to match with codes
+  # Convert values to character
   values_char <- as.character(values)
   
-  # Apply mapping
-  recoded_values <- lookup[values_char]
-  
-  # Keep original values where no mapping exists
-  recoded_values[is.na(recoded_values)] <- values_char[is.na(recoded_values)]
+  # Apply mapping, handling pipe-separated values
+  recoded_values <- vapply(values_char, function(v) {
+    if (is.na(v) || v == "" || v == "NA") {
+      return(NA_character_)
+    }
+    # Split by pipe
+    codes <- strsplit(v, "\\|")[[1]]
+    # Map each code individually
+    mapped <- vapply(codes, function(code) {
+      code_trimmed <- trimws(code)
+      if (code_trimmed %in% names(lookup)) {
+        return(lookup[[code_trimmed]])
+      } else {
+        return(code_trimmed)
+      }
+    }, character(1), USE.NAMES = FALSE)
+    # Rejoin with pipe
+    return(paste(mapped, collapse = "|"))
+  }, character(1), USE.NAMES = FALSE)
   
   return(recoded_values)
 }
+
+# Field IDs to exclude from coding
+NO_CODING_FIELD_IDS <- c("41270", "41202", "22617")
 
 # Read command line arguments
 args <- commandArgs(trailingOnly = TRUE)
@@ -206,13 +223,13 @@ if (instance_all) {
 }
 
 # Load data dictionary and codings
-dict_file <- file.path(reference_path, "app45551_20251118060954.dataset.data_dictionary.csv")
+dict_file <- file.path(reference_path, "app45551_20260316213535.dataset.data_dictionary.csv")
 cat("Loading data dictionary from:", dict_file, "\n")
 dictionary <- fread(dict_file, header = TRUE, stringsAsFactors = FALSE, 
                     select = c("name", "title", "coding_name"))
 cat("Dictionary loaded with", nrow(dictionary), "entries\n")
 
-codings_file <- file.path(reference_path, "app45551_20251118060954.dataset.codings.csv")
+codings_file <- file.path(reference_path, "app45551_20260316213535.dataset.codings.csv")
 cat("Loading data codings from:", codings_file, "\n")
 codings_dt <- fread(codings_file, header = TRUE, stringsAsFactors = FALSE,
                     select = c("coding_name", "code", "meaning"))
@@ -288,16 +305,22 @@ field_coding_mapping <- list()
 
 for (fid in field_ids) {
   descriptive_name <- create_descriptive_name(fid, dictionary)
-  coding_name <- get_coding_name(fid, dictionary)
+  
+  # Skip coding for excluded field IDs
+  if (fid %in% NO_CODING_FIELD_IDS) {
+    coding_name <- NA_character_
+    cat("  Field", fid, "->", descriptive_name, "[CODING SKIPPED - excluded field]\n")
+  } else {
+    coding_name <- get_coding_name(fid, dictionary)
+    if (!is.na(coding_name)) {
+      cat("  Field", fid, "->", descriptive_name, "[CODED:", coding_name, "]\n")
+    } else {
+      cat("  Field", fid, "->", descriptive_name, "\n")
+    }
+  }
   
   field_name_mapping[[fid]] <- descriptive_name
   field_coding_mapping[[fid]] <- coding_name
-  
-  if (!is.na(coding_name)) {
-    cat("  Field", fid, "->", descriptive_name, "[CODED:", coding_name, "]\n")
-  } else {
-    cat("  Field", fid, "->", descriptive_name, "\n")
-  }
 }
 cat("\n")
 
@@ -358,7 +381,7 @@ for (fid in field_ids) {
     # Extract column data efficiently
     col_data <- dt_subset[[row$original_name]]
     
-    # Apply data coding if applicable
+    # Apply data coding if applicable (already NA for excluded fields)
     if (!is.na(coding_name)) {
       col_data <- apply_data_coding(col_data, coding_name, codings_dt)
     }
@@ -416,10 +439,12 @@ setorder(final_dt, SubjectID, InstanceID, ArrayID)
 
 cat("\nDimensions before removing all-NA rows:", nrow(final_dt), "rows x", ncol(final_dt), "columns\n")
 
-# Convert empty strings to NA across all data columns
+# Convert empty strings to NA across all data columns (character columns only)
 data_cols_all <- setdiff(colnames(final_dt), c("SubjectID", "InstanceID", "ArrayID"))
 for (col in data_cols_all) {
-  set(final_dt, which(final_dt[[col]] == ""), col, NA)
+  if (is.character(final_dt[[col]])) {
+    set(final_dt, which(final_dt[[col]] == ""), col, NA_character_)
+  }
 }
 
 # Remove rows where all columns except SubjectID, InstanceID, and ArrayID are NA
@@ -435,7 +460,9 @@ cat("Dimensions after removing all-NA rows:", nrow(final_dt), "rows x", ncol(fin
 output_file <- paste0(output_name, ".csv")
 
 cat("Writing output to:", output_file, "\n")
-fwrite(final_dt, output_file, row.names = FALSE)
+# quote = TRUE ensures all character fields (including coded values with commas or pipes)
+# are wrapped in double quotes in the CSV output
+fwrite(final_dt, output_file, row.names = FALSE, quote = TRUE)
 
 cat("\n", rep("=", 72), "\n", sep="")
 cat("Pipeline completed successfully!\n")
