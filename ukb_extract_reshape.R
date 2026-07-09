@@ -16,19 +16,21 @@ parse_column_name <- function(col_name) {
   # Remove 'p' prefix
   col_name_clean <- gsub("^p", "", col_name)
   
-  # Parse pattern: field_id or field_id_i# or field_id_i#_a#
+  # Parse pattern: field_id or field_id_i# or field_id_i#_a# or field_id_a#
   parts <- strsplit(col_name_clean, "_")[[1]]
   
   field_id <- parts[1]
   instance_id <- NA_integer_
   array_id <- NA_integer_
   
-  if (length(parts) >= 2 && grepl("^i", parts[2])) {
-    instance_id <- as.integer(gsub("^i", "", parts[2]))
-  }
-  
-  if (length(parts) >= 3 && grepl("^a", parts[3])) {
-    array_id <- as.integer(gsub("^a", "", parts[3]))
+  if (length(parts) >= 2) {
+    for (part in parts[-1]) {
+      if (grepl("^i[0-9]+$", part)) {
+        instance_id <- as.integer(gsub("^i", "", part))
+      } else if (grepl("^a[0-9]+$", part)) {
+        array_id <- as.integer(gsub("^a", "", part))
+      }
+    }
   }
   
   return(list(field_id = field_id, instance_id = instance_id, 
@@ -129,7 +131,7 @@ apply_data_coding <- function(values, coding_name, codings_dt) {
 }
 
 # Field IDs to exclude from coding
-NO_CODING_FIELD_IDS <- c("41270", "41202", "22617")
+NO_CODING_FIELD_IDS <- c("41270", "41202", "22617", "20277")
 
 # Read command line arguments
 args <- commandArgs(trailingOnly = TRUE)
@@ -180,9 +182,9 @@ for (line in config) {
   }
 }
 
-field_ids <- trimws(unique(field_ids))
+field_ids <- as.numeric(trimws(unique(field_ids)))
 instance_ids <- as.integer(trimws(unique(instance_ids)))
-category_ids <- trimws(unique(category_ids))
+category_ids <- as.numeric(trimws(unique(category_ids)))
 
 # Reference data path
 reference_path <- "/home/houmanaz/links/scratch/UKB_RAP_Extraction"
@@ -382,30 +384,36 @@ for (fid in field_ids) {
     col_data <- dt_subset[[row$original_name]]
     
     # Apply data coding if applicable (already NA for excluded fields)
-    if (!is.na(coding_name)) {
+    if (!is.na(coding_name)) {    
       col_data <- apply_data_coding(col_data, coding_name, codings_dt)
     }
-    
+
     if (has_instance && has_array) {
-      # Case 1: Has FieldID, InstanceID, and ArrayID
+      # Case 1: FieldID + InstanceID + ArrayID
       temp_dt_list[[i]] <- data.table(
         SubjectID = dt_subset$eid,
         InstanceID = row$instance_id,
         ArrayID = row$array_id,
         value = col_data
       )
-      
     } else if (has_instance && !has_array) {
-      # Case 2: Has FieldID and InstanceID only
+      # Case 2: FieldID + InstanceID only
       temp_dt_list[[i]] <- data.table(
         SubjectID = dt_subset$eid,
         InstanceID = row$instance_id,
         ArrayID = 0L,
         value = col_data
       )
-      
+    } else if (!has_instance && has_array) {
+      # Case 4: FieldID + ArrayID only, no instance - replicate across all instances
+      temp_dt_list[[i]] <- data.table(
+        SubjectID = rep(dt_subset$eid, each = length(instance_ids)),
+        InstanceID = rep(instance_ids, times = nrow(dt_subset)),
+        ArrayID = row$array_id,
+        value = rep(col_data, each = length(instance_ids))
+      )
     } else {
-      # Case 3: Has FieldID only - replicate for all instances
+      # Case 3: FieldID only - replicate across all instances
       temp_dt_list[[i]] <- data.table(
         SubjectID = rep(dt_subset$eid, each = length(instance_ids)),
         InstanceID = rep(instance_ids, times = nrow(dt_subset)),

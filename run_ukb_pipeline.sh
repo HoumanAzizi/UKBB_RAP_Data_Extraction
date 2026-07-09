@@ -1,6 +1,7 @@
 #!/bin/bash
-#SBATCH --time=02:00:00
+#SBATCH --time=04:59:00
 #SBATCH --mem=200G
+#SBATCH --account=def-zeighami
 #SBATCH --cpus-per-task=1
 #SBATCH --job-name=ukb_extract
 
@@ -39,7 +40,7 @@ if [ ! -f "$CONFIG_FILE" ]; then
 fi
 
 # Get absolute path of R script (assumes it's in the same directory as this bash script)
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+SCRIPT_DIR="/home/houmanaz/links/scratch/UKB_RAP_Extraction"
 R_SCRIPT="${SCRIPT_DIR}/ukb_extract_reshape.R"
 
 # Check if R script exists

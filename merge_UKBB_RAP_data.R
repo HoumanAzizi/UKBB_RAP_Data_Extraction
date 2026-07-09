@@ -20,12 +20,13 @@ data_path <- "/home/houmanaz/links/projects/rrg-adagher/public_data/UKB_Tabular"
 
 # Define all data files to merge
 data_files <- c(
-  "UKB_assessment_center_2025Nov.csv",
-  "UKB_population_characteristics_2025Nov.csv",
-  "UKB_health_outcomes_2025Nov.csv",
-  "UKB_additional_exposures_2025Nov.csv",
-  "UKB_biological_samples_2025Nov.csv",
-  "UKB_online_followup_2025Nov.csv"
+  file.path(data_path, "UKB_assessment_center_2025Nov.csv"),
+  file.path(data_path, "UKB_population_characteristics_2025Nov.csv"),
+  file.path(data_path, "UKB_health_outcomes_2025Nov.csv"),
+  file.path(data_path, "UKB_additional_exposures_2025Nov.csv"),
+  file.path(data_path, "UKB_biological_samples_2025Nov.csv"),
+  file.path(data_path, "UKB_online_followup_2025Nov.csv"),
+  file.path("/home/houmanaz/links/scratch/UKB_RAP_Extraction/archive/UKB_home_locations_2026March.csv")
 )
 
 cat("Reading and merging data files...\n")
@@ -34,9 +35,12 @@ cat("This will take some time...\n\n")
 dt <- NULL
 
 for (i in seq_along(data_files)) {
-  file_name <- data_files[i]
-  file_path <- file.path(data_path, file_name)
+  # file_name <- data_files[i]
+  # file_path <- file.path(data_path, file_name)
   
+  file_path <- data_files[i]
+  file_name <- basename(file_path)
+
   if (file.exists(file_path)) {
     cat("[", i, "/", length(data_files), "] Loading:", file_name, "\n")
     dt_temp <- fread(file_path, header = TRUE, stringsAsFactors = FALSE)
@@ -45,6 +49,20 @@ for (i in seq_along(data_files)) {
     if (is.null(dt)) {
       dt <- dt_temp
     } else {
+
+      # Identify duplicate columns (excluding the merge key)
+      duplicate_cols <- intersect(names(dt), names(dt_temp))
+      duplicate_cols <- duplicate_cols[duplicate_cols != "eid"]
+      
+      if (length(duplicate_cols) > 0) {
+        cat("    WARNING: Duplicate columns found:", paste(duplicate_cols, collapse = ", "), "\n")
+        cat("    Dropping duplicates from incoming file (keeping first occurrence)\n")
+        
+        # Drop duplicates from the incoming file
+        dt_temp <- dt_temp[, !names(dt_temp) %in% duplicate_cols, with = FALSE]
+      }
+      rm(duplicate_cols)
+
       cat("    Merging...\n")
       dt <- merge(dt, dt_temp, by = "eid", all = TRUE)
       cat("    Current merged dimensions:", nrow(dt), "rows x", ncol(dt), "columns\n")
